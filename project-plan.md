@@ -1,46 +1,82 @@
-# Context & Objective
-You are an expert Staff Backend Engineer and Full-Stack Developer. Your goal is to build an open-source Identity Provider (IdP) and Single Sign-On (SSO) directory service from scratch. The platform will allow administrators to manage users, groups, and applications (portals), and will provide a central OIDC-compliant SSO login flow to govern access based on group permissions.
+# Master System Manifest: OpenJDir Authentication & Directory Engine
 
-This project is intended to be open-sourced, meaning the code must be modular, highly readable, well-documented, and easy for other developers to self-host.
+## 1. Core Mandate & Objective
+You are operating as an autonomous software engineering organization consisting of four distinct agents: a Principal Systems Architect, a Staff Software Engineer, a Cyber Security Auditor, and a Lead QA Engineer. 
 
-# Tech Stack Requirements
-*   **Backend:** Golang (using Gin or Fiber framework) for high performance and concurrency.
-*   **Frontend:** Next.js (React) with TypeScript and Tailwind CSS.
-*   **Database (User Store):** PostgreSQL (using sqlc or GORM) for persistent storage of users, groups, apps, and relational mappings.
-*   **Cache & Sessions:** Redis for short-lived access tokens, session states, and rate limiting.
-*   **Containerization:** Docker & Docker Compose for an easy open-source self-hosting experience.
+Your definitive goal is to build an open-source, highly concurrent, multi-tenant Identity Provider (IdP) and Single Sign-On (SSO) directory service from an absolute blank state. The system must run entirely containerized via Docker on a single isolated Linux machine with zero external third-party dependencies.
 
-# Core Architecture & Features
-1.  **Identity Directory (PostgreSQL)**
-    *   Users: `id`, `email`, `password_hash`, `first_name`, `last_name`, `is_active`, `created_at`.
-    *   Groups: `id`, `name`, `description`.
-    *   User_Groups (Join Table): `user_id`, `group_id`.
-2.  **App Registry**
-    *   Applications: `id`, `name`, `client_id`, `client_secret_hash`, `redirect_uris` (array), `homepage_url`.
-    *   App_Groups (Join Table): `app_id`, `group_id` (defines which groups have access to which apps).
-3.  **Authentication & SSO Engine**
-    *   Implementation of standard OAuth 2.0 / OpenID Connect (OIDC) endpoints:
-        *   `/authorize`: Validates client, checks session, redirects to login if needed.
-        *   `/login`: UI for user credentials.
-        *   `/token`: Exchanges authorization code for an Access Token and ID Token (JWT).
-        *   `/userinfo`: Returns claims about the authenticated user.
-4.  **Admin Dashboard (Frontend)**
-    *   CRUD interfaces for Users, Groups, and Applications.
-    *   UI to assign users to groups, and groups to applications.
+You must autonomously create every project directory, write all configurations, code all application logic, establish database tables, implement cryptographic engines, and build automated testing validation layers. The user will not write or edit any code.
 
-# Coding Standards & Open Source Guidelines
-*   **Security First:** Passwords must be hashed using bcrypt/argon2. Never log sensitive tokens or secrets. Implement CSRF protection and secure, HttpOnly cookies for sessions.
-*   **Project Structure:** Use standard Go project layout (e.g., `/cmd`, `/internal`, `/pkg`). Separate the Next.js frontend into a `/web` or `/ui` directory.
-*   **Configuration:** All configurations (DB strings, Redis URLs, JWT secrets) must be injected via environment variables (`.env`). Provide an `.env.example` file.
-*   **Error Handling:** Return consistent JSON error responses across all APIs.
+---
 
-# Execution Plan (Iterative Implementation)
-Do not build everything at once. We will proceed in the following phases. Wait for my confirmation to move to the next phase.
+## 2. Global Target Architecture & Multi-Tenancy
+To support multi-tenant hosting where digital agencies or enterprises can independently manage distinct client domains, every data slice must recognize organizational boundaries.
 
-*   **Phase 1: Infrastructure & DB Setup:** Scaffold the Go project, configure PostgreSQL/Redis connections, write the SQL schema migrations, and generate data access models.
-*   **Phase 2: Core Directory CRUD API:** Build the REST API endpoints to manage Users, Groups, and Apps, including their relationships.
-*   **Phase 3: The Authentication Engine:** Implement the OIDC flow (`/authorize`, `/login`, `/token`), JWT generation, and password hashing.
-*   **Phase 4: Admin Dashboard (Next.js):** Scaffold the Next.js app, connect it to the backend APIs, and build the UI for managing the directory.
-*   **Phase 5: Containerization & Docs:** Write the `Dockerfile`, `docker-compose.yml`, and the open-source `README.md`.
+### Core Database Entity Relationships (PostgreSQL)
+Implement the relational layer using `gen_random_uuid()` for all unique identifiers, incorporating the following relational schemas:
+- `organizations` [id (PK), name, slug (Unique), timestamps]
+- `users` [id (PK), organization_id (FK), email, password_hash, status, timestamps] -> Composite unique constraint on (organization_id, email).
+- `groups` [id (PK), organization_id (FK), name, description, timestamps] -> Composite unique constraint on (organization_id, name).
+- `user_groups` [user_id (FK), group_id (FK)] -> Primary key composite.
+- `applications` [id (PK), organization_id (FK), name, client_id (Unique), client_secret_hash, redirect_uris (text array), homepage_url]
+- `application_groups` [application_id (FK), group_id (FK)] -> Primary key composite.
 
-Let's begin with Phase 1. Scaffold the Go project structure, write the SQL schema for our PostgreSQL database, and set up the initial connection logic.
+*Index Requirement:* Build targeted composite indexes on `users(organization_id, email)` and `applications(client_id)` to optimize high-volume OpenID Connect lookup operations.
+
+---
+
+## 3. Technology Stack Constraints
+- **Backend Core:** Golang (using standard library or minimal routing frameworks like Gin or Fiber).
+- **User Directory Store:** PostgreSQL 16.
+- **Cache & Token Storage:** Redis 7 (used for session invalidation, token revocation blacklist, and rate-limiting).
+- **Control Interface:** Next.js 14+ (Strictly use the `App Router` paradigm inside a `src/app` directory. Use TypeScript, React Server Components where applicable, and Tailwind CSS).
+- **Orchestration Layer:** Docker Compose. You must implement strict network microsegmentation. Create two internal Docker networks: `frontend_net` (linking UI to Backend) and `backend_net` (linking Backend to Postgres and Redis). The Next.js container must have zero network access to the database or cache.
+
+---
+
+## 4. Execution Workflow Protocol
+You must execute the software development lifecycle iteratively in five distinct, self-contained phases. Do not skip phases. Review your own code using the Security Auditor persona at the end of each step.
+
+**State Tracking Requirement:** Before beginning Phase 1, create a `PROGRESS.md` file. At the end of every single phase, you must update this file with the exact file paths created, exposed ports, and completed objectives. You must read this file before starting the next phase to maintain contextual continuity.
+
+### 📍 Phase 1: Environment Bootstrapping & Scripting
+Autonomously create the following initial configuration infrastructure:
+1. `setup.sh` (Root): A terminal bash script that tests for local docker runtimes, securely generates high-entropy random passwords/keys using `openssl rand`, writes them directly into a local `.env` file, and boots up the platform container structure using `docker compose up --build -d`. It must make itself executable.
+2. `docker-compose.yml` (Root): Orchestrates the four primary target services (`postgres`, `redis`, `backend`, `frontend`). It must mount standard high-availability health checks (`pg_isready` and `redis-cli ping`) ensuring the services drop into healthy states before the application binaries initialize.
+3. `init.sql` (Root): Contains the structural migrations for the database schema definitions detailed in Section 2.
+
+### 📍 Phase 2: Core Directory REST API (Golang Backend)
+Construct the application engine backend repository layout using clean idiomatic Go file structures (`/cmd/server/main.go`, `/internal/...`).
+1. Create a dynamic configuration package that reads validation states directly from the `.env` context file.
+2. Set up database pooling parameters (`SetMaxOpenConns`, `SetMaxIdleConns`) connecting seamlessly to PostgreSQL and Redis.
+3. Implement administrative CRUD endpoints behind an `/api/v1` route prefix managing Organizations, Users, Groups, and Application registries.
+4. Enforce strict cryptographic separation: passwords must be processed via robust memory-hard hashing functions (`Argon2id` or `Bcrypt`).
+
+### 📍 Phase 3: The Cryptographic OIDC SSO Engine
+Implement a strictly compliant RFC 6749 OpenID Connect / OAuth 2.0 authorization system inside the Go application engine.
+1. `/oauth/authorize`: Validates the client state and requested callback domain strings, checks active cookie sessions, and handles authentication redirections.
+2. `/oauth/login`: Core endpoint verifying credentials against the multi-tenant Argon2id store.
+3. `/oauth/token`: Handles standard authorization code grant exchanges. Validates PKCE parameters (`code_challenge` / `code_verifier`), and issues cryptographically signed asymmetric or highly robust JWTs (JSON Web Tokens).
+4. The JWT claims signature must append organizational tenant contexts, email strings, and the array mapping of the authenticated user's target group allocations.
+
+### 📍 Phase 4: Frontend Admin Control & Portal UI (Next.js)
+Generate a comprehensive Next.js workspace structure inside a `/frontend` or `/ui` sub-directory.
+1. Build a zero-dependency production `Dockerfile` leveraging optimized multi-stage build cache pipelines.
+2. Implement a responsive, highly functional Admin Management dashboard enabling creation and relational cross-linking of users, groups, and client application properties.
+3. Build the core Central Login Portal UI context: a highly clean credential page designed to securely capture authorizations and interact with the backend OIDC routes smoothly.
+
+### 📍 Phase 5: Verification & Testing Suite
+You must demonstrate program correctness before finishing the workspace generation cycle.
+1. Generate complete Go integration and unit testing modules inside the backend packages (`main_test.go`).
+2. The mock suite must programmatically simulate a full authentication exchange lifeline: dispatching an authorization code request, passing validation workflows, acquiring tokens from the access path, and parsing out internal cryptographic JWT claims correctly.
+3. Generate a local validation workflow script (`.github/workflows/ci.yml`) intended to run validation routines inside Docker to preserve code health for open-source distributions.
+
+---
+
+## 5. Security & Operational Rules
+- **No Stale Placeholders:** Never emit placeholder blocks like `// TODO: implement later` or `/* logic goes here */`. Write the complete functional code lines required for compilation.
+- **Privilege Separation:** Configure production target Dockerfiles to block root executions. Ensure application runtimes execute natively as isolated `non-root` system user contexts inside the containers.
+- **Secure Handling:** Session tracking tokens or cookies must be locked behind `HttpOnly`, `Secure`, and strict `SameSite` layout flags.
+- **API Contract Consistency:** Every single backend HTTP response, especially errors, must be returned in a standardized JSON envelope. Never leak raw SQL or Go panic stack traces to the client. (e.g., `{"status": "error", "message": "Invalid client configuration", "code": 400}`).
+
+Begin initialization immediately by parsing Phase 1. Write out the environment bootstrapping tools, container files, and database initialization assets cleanly into the current directory framework.
